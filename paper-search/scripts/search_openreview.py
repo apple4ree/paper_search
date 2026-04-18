@@ -7,6 +7,7 @@ import datetime as _dt
 import json
 import re
 import sys
+import traceback
 
 import openreview
 
@@ -26,7 +27,9 @@ def make_client():
 
 
 def _extract_year(note) -> int:
-    ts = getattr(note, "pdate", None) or getattr(note, "cdate", None)
+    ts = getattr(note, "pdate", None)
+    if ts is None:
+        ts = getattr(note, "cdate", None)
     if ts is None:
         return 0
     return _dt.datetime.fromtimestamp(ts / 1000.0, tz=_dt.timezone.utc).year
@@ -84,10 +87,11 @@ def main(argv: list[str] | None = None) -> int:
         notes = client.search_notes(
             term=args.query,
             group=args.venue,
-            limit=max(args.top * 2, args.top),  # over-fetch before year filter
+            limit=args.top * 2,  # over-fetch before year filter
         )
     except Exception as e:
         print(f"openreview search failed ({args.venue}): {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return 1
 
     papers = [_note_to_paper(n) for n in notes]
