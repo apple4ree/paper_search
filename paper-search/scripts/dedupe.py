@@ -51,33 +51,26 @@ def _merge(primary: Paper, other: Paper) -> tuple[Paper, list[str]]:
 def dedupe(papers: Iterable[Paper]) -> dict[str, list[dict]]:
     best: dict[tuple, Paper] = {}
     alts: dict[tuple, list[str]] = {}
+    # Secondary index: (normalized_title, first_author_lastname) -> primary key in best.
+    # Lets an incoming paper match a previously stored paper with the same title,
+    # regardless of whether it's keyed by doi/arxiv/title.
+    _title_index: dict[tuple, tuple] = {}
 
     for p in papers:
         k = dedup_key(p)
-        # Also generate a title-based key for fallback matching
-        title_key = ("title", normalize_title(p.title), first_author_lastname(p.authors))
+        title_sig = (normalize_title(p.title), first_author_lastname(p.authors))
 
-        # Try to find an existing paper by dedup_key or title-based fallback
-        existing_key = None
+        existing_key: tuple | None = None
         if k in best:
             existing_key = k
-        elif k[0] == "arxiv" and title_key in best and best[title_key].arxiv_id is None:
-            # If we have an arxiv paper and an existing paper with same title+author but no arxiv_id, match them
-            existing_key = title_key
-        elif k[0] == "title":
-            # Try to match with title_key first
-            if title_key in best:
-                existing_key = title_key
-            else:
-                # Also check if any existing paper with same title+author (but different key) exists
-                for existing_k, existing_p in best.items():
-                    if existing_k[0] == "arxiv" and normalize_title(existing_p.title) == normalize_title(p.title) and first_author_lastname(existing_p.authors) == first_author_lastname(p.authors):
-                        existing_key = existing_k
-                        break
+        elif title_sig in _title_index:
+            existing_key = _title_index[title_sig]
 
         if existing_key is None:
             best[k] = p
             alts[k] = []
+            # Index all papers by title signature for future matching
+            _title_index[title_sig] = k
             continue
 
         current = best[existing_key]
