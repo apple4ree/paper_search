@@ -46,7 +46,7 @@ _WS_RE = re.compile(r"\s+")
 def normalize_title(title: str) -> str:
     """Lowercase, strip punctuation (except hyphens), collapse whitespace."""
     t = _PUNCT_RE.sub(" ", title.lower())
-    t = t.replace("-", " ")
+    t = t.replace("-", " ").replace("_", " ")
     t = _WS_RE.sub(" ", t).strip()
     return t
 
@@ -55,6 +55,8 @@ def title_slug(title: str, max_len: int = 60) -> str:
     """Produce a filesystem-safe slug, hyphen-separated, at most max_len chars."""
     t = _PUNCT_RE.sub("", title.lower())
     t = _WS_RE.sub("-", t).strip("-")
+    if not t:
+        return "untitled"
     if len(t) <= max_len:
         return t
     cut = t[:max_len].rsplit("-", 1)[0] or t[:max_len]

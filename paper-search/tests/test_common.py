@@ -35,8 +35,10 @@ def test_normalize_title_strips_punct_and_lowercases():
 def test_title_slug_truncates_and_hyphenates():
     s = title_slug("Chain-of-Thought Distillation for Small Language Models")
     assert s == "chain-of-thought-distillation-for-small-language-models"
-    long_title = "A " * 60
-    assert len(title_slug(long_title)) <= 60
+    long_title = "word " * 30  # 150 chars
+    slug = title_slug(long_title)
+    assert 0 < len(slug) <= 60
+    assert not slug.endswith("-")
 
 
 def test_first_author_lastname_handles_comma_and_space_forms():
@@ -65,3 +67,14 @@ def test_dedup_key_prefers_doi_then_arxiv_then_title_author():
     assert dedup_key(p_doi) == ("doi", "10.1/abc")
     assert dedup_key(p_arxiv) == ("arxiv", "2401.1")
     assert dedup_key(p_title) == ("title", "cool paper", "zed")
+
+
+def test_normalize_title_treats_underscores_like_hyphens():
+    # Ensures dedup merges "pre_training" and "pre-training" to the same key.
+    assert normalize_title("pre_training methods") == "pre training methods"
+    assert normalize_title("pre-training methods") == "pre training methods"
+
+
+def test_title_slug_falls_back_on_empty_result():
+    assert title_slug("!!!") == "untitled"
+    assert title_slug("   ") == "untitled"
