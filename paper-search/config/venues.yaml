@@ -1,0 +1,20 @@
+# Target venues for paper-search.
+# Entries with openreview_id are queried via search_openreview.py;
+# others are picked up from arxiv / gscholar results only.
+
+venues:
+  - { name: NeurIPS, openreview_id: NeurIPS.cc }
+  - { name: ICLR,    openreview_id: ICLR.cc }
+  - { name: ICML,    openreview_id: ICML.cc }
+  - { name: COLM,    openreview_id: colmweb.org }
+  - { name: ACL }
+  - { name: EMNLP }
+  - { name: NAACL }
+  - { name: CVPR }
+  - { name: ICCV }
+  - { name: ECCV }
+  - { name: AAAI }
+
+special_categories:
+  - arxiv_only
+  - workshop
