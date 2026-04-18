@@ -9,6 +9,7 @@ import sys
 import time
 
 import arxiv
+import requests
 
 from scripts.common import Paper
 
@@ -56,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             raw = _search(args.query, args.top)
             break
-        except Exception as e:  # arxiv lib raises a few distinct exceptions
+        except (arxiv.ArxivError, requests.exceptions.RequestException) as e:
             last_exc = e
             time.sleep(2 ** attempt)
     else:

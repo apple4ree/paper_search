@@ -1,9 +1,5 @@
 import json
-import subprocess
-import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 
 def _fake_result(
@@ -83,11 +79,15 @@ def test_search_arxiv_filters_by_years(monkeypatch, capsys):
 
 
 def test_search_arxiv_network_error_exits_nonzero(monkeypatch, capsys):
+    import requests
     from scripts import search_arxiv
+
+    call_count = {"n": 0}
 
     class FakeClient:
         def results(self, search):
-            raise ConnectionError("boom")
+            call_count["n"] += 1
+            raise requests.exceptions.ConnectionError("boom")
 
     monkeypatch.setattr(search_arxiv.arxiv, "Search", lambda *a, **kw: None)
     monkeypatch.setattr(search_arxiv.arxiv, "Client", lambda *a, **kw: FakeClient())
@@ -96,3 +96,4 @@ def test_search_arxiv_network_error_exits_nonzero(monkeypatch, capsys):
     rc = search_arxiv.main(["--query", "x", "--top", "2"])
     assert rc != 0
     assert "boom" in capsys.readouterr().err
+    assert call_count["n"] == 3
