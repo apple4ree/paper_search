@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import sys
 import traceback
@@ -22,8 +23,24 @@ def current_year() -> int:
 
 
 def make_client():
-    # Anonymous read-only access is sufficient for public metadata.
-    return openreview.api.OpenReviewClient(baseurl="https://api2.openreview.net")
+    """Return an authenticated OpenReview client.
+
+    OpenReview requires authentication for all API endpoints as of 2024.
+    Set OPENREVIEW_USERNAME and OPENREVIEW_PASSWORD env vars (free registration
+    at https://openreview.net/signup).
+    """
+    username = os.environ.get("OPENREVIEW_USERNAME")
+    password = os.environ.get("OPENREVIEW_PASSWORD")
+    if not username or not password:
+        raise RuntimeError(
+            "OpenReview credentials missing — set OPENREVIEW_USERNAME and "
+            "OPENREVIEW_PASSWORD env vars (free signup at https://openreview.net/signup)."
+        )
+    return openreview.api.OpenReviewClient(
+        baseurl="https://api2.openreview.net",
+        username=username,
+        password=password,
+    )
 
 
 def _extract_year(note) -> int:
@@ -82,13 +99,18 @@ def main(argv: list[str] | None = None) -> int:
                         help="OpenReview group prefix, e.g. NeurIPS.cc")
     args = parser.parse_args(argv)
 
+    short_venue = args.venue.split(".")[0]
     try:
         client = make_client()
         notes = client.search_notes(
             term=args.query,
-            group=args.venue,
+            group=short_venue,
             limit=args.top * 2,  # over-fetch before year filter
         )
+    except RuntimeError as e:
+        # Missing credentials — human-readable, no traceback.
+        print(f"openreview: {e}", file=sys.stderr)
+        return 1
     except Exception as e:
         print(f"openreview search failed ({args.venue}): {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)

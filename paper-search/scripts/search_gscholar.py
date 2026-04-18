@@ -48,7 +48,10 @@ def run_search(query: str, top: int) -> list[dict]:
 def _pub_to_paper(pub: dict) -> Paper:
     bib = pub.get("bib", {})
     author_raw = bib.get("author", "")
-    authors = [a.strip() for a in author_raw.split(" and ") if a.strip()]
+    if isinstance(author_raw, list):
+        authors = [str(a).strip() for a in author_raw if str(a).strip()]
+    else:
+        authors = [a.strip() for a in str(author_raw).split(" and ") if a.strip()]
     year_raw = bib.get("pub_year") or bib.get("year") or "0"
     try:
         year = int(str(year_raw)[:4])

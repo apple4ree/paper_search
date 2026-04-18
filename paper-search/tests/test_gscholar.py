@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock
 
 
+
 def _fake_publication(title="T", authors=("Jane Smith",), year=2024,
                      venue="NeurIPS", abstract="abs", url="http://g/p"):
     return {
@@ -67,3 +68,26 @@ def test_gscholar_year_filter(monkeypatch, capsys):
     assert rc == 0
     data = json.loads(capsys.readouterr().out)
     assert [d["title"] for d in data] == ["New"]
+
+
+def test_gscholar_handles_list_form_authors(monkeypatch, capsys):
+    from scripts import search_gscholar
+
+    fake = [{
+        "bib": {
+            "title": "List Authors Paper",
+            "author": ["Jane Smith", "Bob Lee"],  # list form, not string
+            "pub_year": "2024",
+            "venue": "NeurIPS",
+            "abstract": "abs",
+        },
+        "pub_url": "http://x",
+        "eprint_url": None,
+    }]
+    monkeypatch.setattr(search_gscholar, "run_search",
+                        lambda query, top: fake)
+
+    rc = search_gscholar.main(["--query", "x", "--top", "1"])
+    assert rc == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data[0]["authors"] == ["Jane Smith", "Bob Lee"]

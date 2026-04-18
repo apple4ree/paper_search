@@ -20,6 +20,18 @@ fails, tell the user to run:
 
 and stop until they confirm.
 
+### OpenReview credentials
+
+OpenReview requires authentication for all API calls. Before running the
+skill, the user must set:
+
+    export OPENREVIEW_USERNAME="..."
+    export OPENREVIEW_PASSWORD="..."
+
+Free signup at https://openreview.net/signup. If these env vars are missing,
+`search_openreview.py` exits 1 with a clear message and the pipeline
+continues with arxiv + gscholar only.
+
 ## Arguments
 
 Parse from the user's invocation:
@@ -57,10 +69,10 @@ queries, and wait for confirmation before continuing.
 
 Load `config/venues.yaml`. For each query Q, launch in parallel:
 
-- `python scripts/search_arxiv.py --query "Q" --top <top*2>`
+- `python -m scripts.search_arxiv --query "Q" --top <top*2>`
 - For each venue V with `openreview_id`:
-  `python scripts/search_openreview.py --query "Q" --top <top*2> --venue <openreview_id>`
-- `python scripts/search_gscholar.py --query "Q" --top <top*2>`
+  `python -m scripts.search_openreview --query "Q" --top <top*2> --venue <openreview_id>`
+- `python -m scripts.search_gscholar --query "Q" --top <top*2>`
 
 Apply `--years` if specified. Concurrency caps: arXiv ≤ 3, OpenReview ≤ 2,
 Google Scholar ≤ 1. Collect all stdouts; concatenate JSON arrays into one
@@ -71,7 +83,7 @@ every source fails.
 
 Pipe the combined array into `dedupe.py`:
 
-    echo "<combined.json>" | python scripts/dedupe.py
+    cat combined.json | python -m scripts.dedupe
 
 Receive `{category: [paper, ...]}` back. Categories that are not in
 `venues.yaml` (i.e., venues learned only from arXiv/gscholar metadata that
