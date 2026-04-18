@@ -12,10 +12,8 @@ import datetime as _dt
 import json
 import sys
 import time
-import traceback
 
-from scholarly import scholarly
-from scholarly._proxy_generator import MaxTriesExceededException
+from scholarly import scholarly, MaxTriesExceededException
 
 from scripts.common import Paper
 
@@ -88,7 +86,6 @@ def main(argv: list[str] | None = None) -> int:
             time.sleep(3)
     else:
         print(f"gscholar blocked: {last}", file=sys.stderr)
-        traceback.print_exception(type(last), last, last.__traceback__, file=sys.stderr)
         return 2
 
     papers = [_pub_to_paper(p) for p in raw]
