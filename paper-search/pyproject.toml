@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "integration: real network calls, skipped by default",
+]
+addopts = "-m 'not integration'"

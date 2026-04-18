@@ -1,0 +1,4 @@
+arxiv>=2.1.0
+openreview-py>=1.42.0
+scholarly>=1.7.11
+pyyaml>=6.0
