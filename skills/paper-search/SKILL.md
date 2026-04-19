@@ -12,13 +12,14 @@ Markdown indexes and per-paper summaries.
 ## Prerequisites
 
 The skill bundles Python scripts that require `arxiv`, `openreview-py`,
-`scholarly`, and `pyyaml`. If `python -c "import arxiv, openreview, scholarly, yaml"`
-fails, tell the user to run:
+`scholarly`, `pyyaml`, and `requests`. If `python -c "import arxiv, openreview, scholarly, yaml, requests"`
+fails, tell the user to run (from the plugin repo root):
 
-    cd <skill-dir> && python -m venv .venv && source .venv/bin/activate \
+    python -m venv .venv && source .venv/bin/activate \
         && pip install -r requirements.txt
 
-and stop until they confirm.
+and stop until they confirm. When installed as a plugin, the repo root is
+`${CLAUDE_PLUGIN_ROOT}`.
 
 ### OpenReview credentials
 
@@ -120,7 +121,12 @@ conflict plainly and let the user pick the direction.
 
 ### 3. Parallel search
 
-Load `config/venues.yaml`. For each query Q, launch in parallel:
+Load `config/venues.yaml` from this skill directory. All script invocations
+below run from the **skill's own directory** (Claude Code sets this as CWD
+when the skill is active). If needed, `cd ${CLAUDE_PLUGIN_ROOT}/skills/paper-search`
+first.
+
+For each query Q, launch in parallel:
 
 - `python -m scripts.search_arxiv --query "Q" --top <top*2>`
 - For each venue V with `openreview_id`:

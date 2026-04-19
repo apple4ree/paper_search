@@ -1,20 +1,30 @@
 #!/usr/bin/env bash
-# Install paper-search skill into the current user's Claude Code setup.
+# Dev install for paper-search skill.
 # - Creates a local .venv and installs requirements.txt
-# - Symlinks this repo into ~/.claude/skills/paper-search
+# - Symlinks skills/paper-search/ into ~/.claude/skills/paper-search
 # - Runs the test suite to verify the install
+#
+# For end-user distribution, prefer the Claude Code plugin flow:
+#   /plugin marketplace add <owner>/paper-search
+#   /plugin install paper-search@<marketplace-name>
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILL_DIR="${REPO_ROOT}/skills/paper-search"
 SKILL_NAME="paper-search"
 SKILLS_DIR="${HOME}/.claude/skills"
 LINK_PATH="${SKILLS_DIR}/${SKILL_NAME}"
 
 echo "==> Repo root: ${REPO_ROOT}"
+echo "==> Skill dir: ${SKILL_DIR}"
 
-if [[ ! -f "${REPO_ROOT}/SKILL.md" ]]; then
-  echo "ERROR: SKILL.md not found at ${REPO_ROOT}. Run this script from the repo root." >&2
+if [[ ! -f "${SKILL_DIR}/SKILL.md" ]]; then
+  echo "ERROR: SKILL.md not found at ${SKILL_DIR}." >&2
+  exit 1
+fi
+if [[ ! -f "${REPO_ROOT}/.claude-plugin/plugin.json" ]]; then
+  echo "ERROR: .claude-plugin/plugin.json missing." >&2
   exit 1
 fi
 
@@ -44,8 +54,12 @@ if [[ -e "${LINK_PATH}" && ! -L "${LINK_PATH}" ]]; then
   exit 1
 fi
 if [[ ! -L "${LINK_PATH}" ]]; then
-  echo "==> Linking ${LINK_PATH} -> ${REPO_ROOT}"
-  ln -s "${REPO_ROOT}" "${LINK_PATH}"
+  echo "==> Linking ${LINK_PATH} -> ${SKILL_DIR}"
+  ln -s "${SKILL_DIR}" "${LINK_PATH}"
+elif [[ "$(readlink "${LINK_PATH}")" != "${SKILL_DIR}" ]]; then
+  echo "==> Repointing symlink to ${SKILL_DIR}"
+  rm "${LINK_PATH}"
+  ln -s "${SKILL_DIR}" "${LINK_PATH}"
 else
   echo "==> Symlink already correct"
 fi

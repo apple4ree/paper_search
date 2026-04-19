@@ -1,0 +1,21 @@
+{
+  "name": "paper-search",
+  "description": "Analyse a research project and build a venue-organised related-work directory from arXiv, OpenReview, and Google Scholar. Produces per-paper Markdown summaries, BibTeX, and cross-paper themes.",
+  "version": "0.1.0",
+  "author": {
+    "name": "dgu",
+    "email": "dami.dgu@gmail.com"
+  },
+  "homepage": "https://github.com/dgu/paper-search",
+  "repository": "https://github.com/dgu/paper-search",
+  "license": "MIT",
+  "keywords": [
+    "research",
+    "papers",
+    "literature-review",
+    "arxiv",
+    "openreview",
+    "ml",
+    "academic"
+  ]
+}

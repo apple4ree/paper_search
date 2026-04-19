@@ -27,16 +27,33 @@ COLM, ACL, EMNLP, NAACL, CVPR, ICCV, ECCV, AAAI, plus `arxiv_only` and
 
 ## Install
 
+### Option A — as a Claude Code plugin (recommended)
+
+From inside Claude Code:
+
+```
+/plugin marketplace add <owner>/paper-search
+/plugin install paper-search@paper-search
+```
+
+Then install Python dependencies once (the plugin's scripts need them):
+
+```bash
+cd "${CLAUDE_PLUGIN_ROOT}"       # or wherever the plugin was cloned
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Option B — manual dev install
+
 ```bash
 git clone https://github.com/<you>/paper-search.git
 cd paper-search
-./install.sh                                # creates venv, installs deps, symlinks skill
+./install.sh        # creates .venv, installs deps, symlinks skills/paper-search
 ```
 
-`install.sh` does three things:
-1. Creates a local `.venv` and installs `requirements.txt`.
-2. Symlinks the repo into `~/.claude/skills/paper-search`.
-3. Verifies the symlink resolves and tests still pass.
+`install.sh` links `skills/paper-search/` into `~/.claude/skills/paper-search`,
+runs the full test suite (23 unit tests), and prints next steps.
 
 ## OpenReview credentials (optional)
 
