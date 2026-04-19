@@ -51,19 +51,72 @@ the phrase as the project description instead of reading the directory.
 
 ### 1. Context gathering
 
-Read the working directory: `README.md`, `docs/`, top-level source files,
-any notes. If content is sparse (< ~200 words of signal), ask the user for
-a 2–3 sentence project description.
+Collect evidence about the project in this **order** (broad → narrow), stop
+reading as soon as the signal is clear:
+
+1. **`README.md`** — the single most informative file; read fully.
+2. **`docs/`** — design notes, specs, plans (read the 2–3 most recent).
+3. **Dependency manifests** — `requirements*.txt`, `pyproject.toml`,
+   `package.json`, `environment.yml`. Names of libraries reveal the
+   domain (e.g., `transformers`, `torch` → deep learning; `scikit-learn` →
+   classical ML; `ray` → distributed systems).
+4. **Top-level folder tree** — `ls -la`, `find . -maxdepth 2 -type d`.
+   Module names and directory layout signal the structure of the work.
+5. **Recent commits** — `git log --oneline -20` shows what's being
+   actively worked on vs. stale.
+6. **Source files — selective**: if signals are still unclear, open the
+   main entry point (e.g., `main.py`, `src/index.ts`) and 1–2 core modules.
+   Do NOT scan the whole codebase.
+
+**Extract these structured signals** (keep in memory or a temp note):
+
+- **Domain** (e.g., "NLP / multi-step reasoning")
+- **Problem statement** (1 sentence)
+- **Method keywords** (3–8 technical terms the authors would use)
+- **Benchmarks / datasets** mentioned (if any)
+- **Baselines / prior work** named (if any)
+- **Scale or regime** (model size, data size, constraint that matters)
+
+If total collected signal is **< ~200 words** or the signals contradict
+each other (e.g., CV + NLP + systems files all present), ask the user for
+a 2–3 sentence project description before continuing.
 
 ### 2. Analysis & query generation
 
-Analyse the context freely and produce 2–4 English queries per
-`references/query_generation.md`. Write them to a temp file or keep them in
-memory for step 3.
+Draft 2–4 English queries per `references/query_generation.md`, using the
+structured signals from §1. Each query should map to one of:
+(a) core method, (b) problem framing, (c) key benchmark/dataset,
+(d) important baseline/alternative approach.
 
-**Ambiguity gate:** if the context signals multiple unrelated topics (e.g.,
-CV + NLP + systems all in one repo), show the user your draft analysis and
-queries, and wait for confirmation before continuing.
+#### Scope confirmation (mandatory)
+
+**Before running any search**, show the user a compact summary and wait
+for explicit approval. Use this format:
+
+```
+**Project summary (draft):** <1–2 sentences of domain + problem>
+
+**Queries (English):**
+1. `<query 1>`
+2. `<query 2>`
+3. `<query 3>`
+4. `<query 4>`
+
+**Scope:**
+- top per venue: <N>
+- years: <unrestricted | last Y>
+- venues: <all | csv list>
+- output: <path>
+
+Approve, tweak, or say "abort".
+```
+
+One pass only — do NOT re-prompt after approval. If the user requests
+changes, apply them and re-show; proceed only after they say OK.
+
+**Ambiguity gate (merged into this step):** If §1 surfaced contradictory
+topics, the confirmation is the place to surface that — present the
+conflict plainly and let the user pick the direction.
 
 ### 3. Parallel search
 
@@ -103,7 +156,7 @@ Create:
 
     papers/
       README.md               # project summary (Korean), queries (English),
-                              # per-venue counts, run metadata
+                              # per-venue counts, cross-paper themes, run metadata
       <venue>/
         index.md              # Markdown table: # | Title | Year | Authors | 관련성
         refs.bib              # all BibTeX entries, concatenated
@@ -111,6 +164,52 @@ Create:
 
 Categories with zero selected papers: no directory created; count 0 in
 README table.
+
+#### Root `papers/README.md` template
+
+```markdown
+# paper-search 결과
+
+**프로젝트 요약** (Korean, 2–3 문장 based on §1 signals)
+
+## 사용된 검색 쿼리 (English)
+- `<query 1>`
+- `<query 2>`
+- ...
+
+## 학회별 결과 수
+| Category | Count |
+|----------|-------|
+| ... | ... |
+
+## Themes across papers
+
+Read the selected papers' titles + abstracts together and write **3–6
+themes** that recur across at least 2 papers. Each theme is 2–3 sentences
+and references the papers by key (e.g., `[shridhar2023]`).
+
+## Convergences
+Where do the selected papers **agree** on a claim, method, or finding?
+2–4 bullet points, each citing ≥ 2 papers.
+
+## Disagreements / open questions
+Where do the selected papers **disagree** or leave things unsettled?
+2–4 bullet points. Cite the papers on each side.
+
+## Gaps
+What does this set of papers **not** cover that matters for the current
+project? 2–3 bullet points — these are candidates for contribution.
+
+## 실행 메타데이터
+- 생성 일시: `<ISO timestamp>`
+- 사용된 소스: arXiv / OpenReview / Google Scholar (which worked)
+- 파라미터: `--top N --years Y ...`
+- 총 선정 논문 수: `<sum>`
+```
+
+The `Themes / Convergences / Disagreements / Gaps` sections are what turn
+this from a reading list into a literature-review starter — do not skip
+them even if results are small (3+ papers is enough).
 
 ### Per-paper template
 
