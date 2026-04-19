@@ -12,14 +12,23 @@ Markdown indexes and per-paper summaries.
 ## Prerequisites
 
 The skill bundles Python scripts that require `arxiv`, `openreview-py`,
-`scholarly`, `pyyaml`, and `requests`. If `python -c "import arxiv, openreview, scholarly, yaml, requests"`
-fails, tell the user to run (from the plugin repo root):
+`scholarly`, `pyyaml`, and `requests`. **Every script invocation in this
+skill must happen inside the plugin's venv**, which lives at
+`${CLAUDE_PLUGIN_ROOT}/.venv`.
 
-    python -m venv .venv && source .venv/bin/activate \
-        && pip install -r requirements.txt
+**Bootstrap check** (run this first, once per session):
 
-and stop until they confirm. When installed as a plugin, the repo root is
-`${CLAUDE_PLUGIN_ROOT}`.
+    cd "${CLAUDE_PLUGIN_ROOT}"
+    if [ ! -d .venv ]; then
+        python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+    else
+        source .venv/bin/activate
+    fi
+    python -c "import arxiv, openreview, scholarly, yaml, requests" \
+        || { echo "deps missing — run: pip install -r requirements.txt"; exit 1; }
+
+If the venv does not exist **and** the user cannot/should not install deps,
+stop and ask them. Do not proceed with broken imports.
 
 ### OpenReview credentials
 
@@ -121,10 +130,16 @@ conflict plainly and let the user pick the direction.
 
 ### 3. Parallel search
 
-Load `config/venues.yaml` from this skill directory. All script invocations
-below run from the **skill's own directory** (Claude Code sets this as CWD
-when the skill is active). If needed, `cd ${CLAUDE_PLUGIN_ROOT}/skills/paper-search`
-first.
+**Required CWD + venv** for every script call in this section:
+
+    cd "${CLAUDE_PLUGIN_ROOT}/skills/paper-search"
+    source "${CLAUDE_PLUGIN_ROOT}/.venv/bin/activate"
+
+Without this, `python -m scripts.X` fails with `ModuleNotFoundError`. Keep
+all script calls inside a single bash snippet that sets both, or re-emit the
+prefix each call.
+
+Load `config/venues.yaml` from `${CLAUDE_PLUGIN_ROOT}/skills/paper-search/config/`.
 
 For each query Q, launch in parallel:
 
@@ -140,7 +155,7 @@ every source fails.
 
 ### 4. Dedupe & classify
 
-Pipe the combined array into `dedupe.py`:
+Pipe the combined array into `dedupe.py` (same CWD/venv as §3):
 
     cat combined.json | python -m scripts.dedupe
 
