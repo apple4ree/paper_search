@@ -1,0 +1,20 @@
+{
+  "name": "paper-search",
+  "description": "Marketplace for the paper-search plugin — venue-organised related-work finder for ML research projects.",
+  "owner": {
+    "name": "apple4ree",
+    "email": "dami.dgu@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "paper-search",
+      "description": "Analyse a research project and build a venue-organised related-work directory from arXiv, OpenReview, and Google Scholar.",
+      "version": "0.1.0",
+      "source": "./",
+      "author": {
+        "name": "apple4ree",
+        "email": "dami.dgu@gmail.com"
+      }
+    }
+  ]
+}

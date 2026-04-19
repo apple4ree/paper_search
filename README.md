@@ -32,7 +32,7 @@ COLM, ACL, EMNLP, NAACL, CVPR, ICCV, ECCV, AAAI, plus `arxiv_only` and
 From inside Claude Code:
 
 ```
-/plugin marketplace add <owner>/paper-search
+/plugin marketplace add apple4ree/paper_search
 /plugin install paper-search@paper-search
 ```
 
@@ -47,8 +47,8 @@ pip install -r requirements.txt
 ### Option B — manual dev install
 
 ```bash
-git clone https://github.com/<you>/paper-search.git
-cd paper-search
+git clone https://github.com/apple4ree/paper_search.git
+cd paper_search
 ./install.sh        # creates .venv, installs deps, symlinks skills/paper-search
 ```
 

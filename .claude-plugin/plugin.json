@@ -3,11 +3,11 @@
   "description": "Analyse a research project and build a venue-organised related-work directory from arXiv, OpenReview, and Google Scholar. Produces per-paper Markdown summaries, BibTeX, and cross-paper themes.",
   "version": "0.1.0",
   "author": {
-    "name": "dgu",
+    "name": "apple4ree",
     "email": "dami.dgu@gmail.com"
   },
-  "homepage": "https://github.com/dgu/paper-search",
-  "repository": "https://github.com/dgu/paper-search",
+  "homepage": "https://github.com/apple4ree/paper_search",
+  "repository": "https://github.com/apple4ree/paper_search",
   "license": "MIT",
   "keywords": [
     "research",
