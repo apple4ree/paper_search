@@ -1,12 +1,14 @@
 """Approach A — figure extraction via PyMuPDF (pure Python, no Java).
 
-Strategy:
-  For each page, collect image blocks (with bboxes) and text blocks.
-  Match each "Figure N:" caption line to the image block closest above it
-  on the same page. Emit PNG + sidecar caption .txt per figure.
+Strategy (hybrid):
+  1. Find every "Figure N:" caption block on each page.
+  2. Prefer an embedded raster image block immediately above the caption
+     (produces the original high-quality bitmap when available).
+  3. Fall back to rasterising the page region above the caption at 150 DPI
+     — this catches vector-drawn figures (TikZ, Illustrator) that PyMuPDF's
+     block detection misses.
 
-This is a heuristic — for higher-quality figure/caption grouping, use
-approach B (pdffigures2).
+For higher-quality figure/caption grouping, use approach B (pdffigures2).
 
 Library usage:
     figures = extract(pdf_path, out_dir)
@@ -67,21 +69,18 @@ def _match_caption(text: str) -> Optional[tuple[int, str]]:
     return None
 
 
+_MIN_RASTER_BYTES = 2000  # below this, embedded "image" is likely a thumbnail/icon
+
+
 def _nearest_image_above(caption_bbox, image_blocks: list[_Block]) -> Optional[_Block]:
     cx0, cy0, cx1, cy1 = caption_bbox
-    candidates = [b for b in image_blocks if b.bbox[3] <= cy0 + 5]  # image bottom ≤ caption top
+    candidates = [b for b in image_blocks if b.bbox[3] <= cy0 + 5]
     if not candidates:
         return None
-    # closest image by vertical gap
     return min(candidates, key=lambda b: cy0 - b.bbox[3])
 
 
-def _extract_image_bytes(page, image_block: _Block) -> bytes:
-    """Get raw image bytes from a text-dict image block.
-
-    Some PyMuPDF versions put raw bytes in `payload['image']`; others only store
-    a reference, in which case we fall back to scanning page.get_images() by bbox.
-    """
+def _image_block_bytes(image_block: _Block) -> Optional[bytes]:
     payload = image_block.payload
     if isinstance(payload, (bytes, bytearray)):
         return bytes(payload)
@@ -89,14 +88,39 @@ def _extract_image_bytes(page, image_block: _Block) -> bytes:
         data = payload["image"]
         if isinstance(data, (bytes, bytearray)):
             return bytes(data)
-    # Fallback: rasterize the bbox area at 2x scale
-    x0, y0, x1, y1 = image_block.bbox
-    pix = page.get_pixmap(clip=fitz.Rect(x0, y0, x1, y1), dpi=200)
+    return None
+
+
+def _rasterize_region(page, bbox, dpi: int = 150) -> bytes:
+    """Render a bbox of the page to PNG at the given DPI."""
+    pix = page.get_pixmap(clip=fitz.Rect(*bbox), dpi=dpi)
     return pix.tobytes("png")
+
+
+def _figure_region_for_caption(
+    page,
+    caption_bbox,
+    prev_caption_bottom_on_page: Optional[float],
+) -> tuple[float, float, float, float]:
+    """Compute a bbox for the figure area above a caption.
+
+    Horizontal extent = page width minus a small margin.
+    Top   = page top OR previous caption bottom on same page.
+    Bottom = caption top - small gap.
+    """
+    pw, ph = page.rect.width, page.rect.height
+    x0 = 0
+    x1 = pw
+    y_top = prev_caption_bottom_on_page + 6 if prev_caption_bottom_on_page else 0
+    y_bot = max(y_top + 20, caption_bbox[1] - 4)
+    return (x0, y_top, x1, y_bot)
 
 
 def extract(pdf_path: Path, out_dir: Path) -> list[dict]:
     """Extract figures from `pdf_path` into `out_dir`.
+
+    Hybrid: prefer embedded raster images; fall back to rasterising the
+    page region above each caption.
 
     Returns a list of dicts: {page, number, caption, image_path}.
     """
@@ -112,26 +136,43 @@ def extract(pdf_path: Path, out_dir: Path) -> list[dict]:
             image_blocks = [b for b in blocks if b.kind == "image"]
             text_blocks = [b for b in blocks if b.kind == "text"]
 
+            # Captions sorted top-to-bottom on this page
+            page_captions = []
             for tb in text_blocks:
                 cap = _match_caption(tb.payload)
-                if cap is None:
-                    continue
-                num, caption_text = cap
-                img = _nearest_image_above(tb.bbox, image_blocks)
-                if img is None:
+                if cap is not None:
+                    page_captions.append((tb, cap))
+            page_captions.sort(key=lambda pair: pair[0].bbox[1])
+
+            prev_caption_bottom: Optional[float] = None
+            for tb, (num, caption_text) in page_captions:
+                img_bytes: Optional[bytes] = None
+
+                # Strategy 1: embedded raster image above caption.
+                img_block = _nearest_image_above(tb.bbox, image_blocks)
+                if img_block is not None:
+                    raw = _image_block_bytes(img_block)
+                    if raw and len(raw) >= _MIN_RASTER_BYTES:
+                        img_bytes = raw if raw[:4] == b"\x89PNG" else None
+                        if img_bytes is None:
+                            try:
+                                img_bytes = fitz.Pixmap(raw).tobytes("png")
+                            except Exception:
+                                img_bytes = None
+
+                # Strategy 2: rasterise region above caption (vector fallback).
+                if img_bytes is None:
+                    region = _figure_region_for_caption(
+                        page, tb.bbox, prev_caption_bottom
+                    )
+                    # Skip if region has no meaningful area
+                    if region[3] - region[1] >= 30 and region[2] - region[0] >= 30:
+                        img_bytes = _rasterize_region(page, region, dpi=150)
+
+                if img_bytes is None:
                     continue
 
-                img_bytes = _extract_image_bytes(page, img)
-                ext = "png"  # normalize output format
-                # If raw bytes are already PNG keep as-is; otherwise convert via Pixmap.
-                if not img_bytes[:4] == b"\x89PNG":
-                    try:
-                        pix = fitz.Pixmap(img_bytes)
-                        img_bytes = pix.tobytes("png")
-                    except Exception:
-                        pass
-
-                out_file = out_dir / f"fig-{num:02d}.{ext}"
+                out_file = out_dir / f"fig-{num:02d}.png"
                 out_file.write_bytes(img_bytes)
                 out_file.with_suffix(".txt").write_text(caption_text)
 
@@ -141,6 +182,7 @@ def extract(pdf_path: Path, out_dir: Path) -> list[dict]:
                     "caption": caption_text,
                     "image_path": str(out_file),
                 })
+                prev_caption_bottom = tb.bbox[3]
     finally:
         doc.close()
 
