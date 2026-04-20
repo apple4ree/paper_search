@@ -1,19 +1,29 @@
 # Target venues for paper-search.
+#
+# Each venue is tagged with one or more `domains`:
+#   - general   : always included; broad ML/AI venues
+#   - nlp       : NLP / CL venues (ACL, EMNLP, NAACL, COLM)
+#   - cv        : CV venues (CVPR, ICCV, ECCV)
+#
+# SKILL.md §2 filters this list by the project's inferred domain before
+# running §3. `general` venues are ALWAYS included; domain-specific venues
+# are included only when the signal matches.
+#
 # Entries with openreview_id are queried via search_openreview.py;
 # others are picked up from arxiv / gscholar results only.
 
 venues:
-  - { name: NeurIPS, openreview_id: NeurIPS.cc }
-  - { name: ICLR,    openreview_id: ICLR.cc }
-  - { name: ICML,    openreview_id: ICML.cc }
-  - { name: COLM,    openreview_id: colmweb.org }
-  - { name: ACL }
-  - { name: EMNLP }
-  - { name: NAACL }
-  - { name: CVPR }
-  - { name: ICCV }
-  - { name: ECCV }
-  - { name: AAAI }
+  - { name: NeurIPS, openreview_id: NeurIPS.cc, domains: [general] }
+  - { name: ICLR,    openreview_id: ICLR.cc,    domains: [general] }
+  - { name: ICML,    openreview_id: ICML.cc,    domains: [general] }
+  - { name: AAAI,                                 domains: [general] }
+  - { name: COLM,    openreview_id: colmweb.org, domains: [nlp] }
+  - { name: ACL,                                  domains: [nlp] }
+  - { name: EMNLP,                                domains: [nlp] }
+  - { name: NAACL,                                domains: [nlp] }
+  - { name: CVPR,                                 domains: [cv] }
+  - { name: ICCV,                                 domains: [cv] }
+  - { name: ECCV,                                 domains: [cv] }
 
 special_categories:
   - arxiv_only

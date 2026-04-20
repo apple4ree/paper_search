@@ -78,7 +78,7 @@ reading as soon as the signal is clear:
    main entry point (e.g., `main.py`, `src/index.ts`) and 1–2 core modules.
    Do NOT scan the whole codebase.
 
-**Extract these structured signals** (keep in memory or a temp note):
+**Extract these structured signals**:
 
 - **Domain** (e.g., "NLP / multi-step reasoning")
 - **Problem statement** (1 sentence)
@@ -91,12 +91,55 @@ If total collected signal is **< ~200 words** or the signals contradict
 each other (e.g., CV + NLP + systems files all present), ask the user for
 a 2–3 sentence project description before continuing.
 
+**Persist the signals as an artifact.** Immediately after extraction,
+write them to `<output>/.project_analysis.json` (default
+`./papers/.project_analysis.json`). This makes runs reproducible and
+lets the user re-run with the same analysis but different scope.
+Schema:
+
+```json
+{
+  "domain": "...",
+  "problem": "...",
+  "method_keywords": ["...", "..."],
+  "benchmarks": ["..."],
+  "baselines": ["..."],
+  "scale": "...",
+  "inferred_domain_tags": ["general", "nlp"],
+  "source_files_read": ["README.md", "docs/..."],
+  "generated_at": "<ISO timestamp>"
+}
+```
+
+`inferred_domain_tags` drives venue filtering in §2 below — see the domain
+→ tag mapping there.
+
 ### 2. Analysis & query generation
 
 Draft 2–4 English queries per `references/query_generation.md`, using the
 structured signals from §1. Each query should map to one of:
 (a) core method, (b) problem framing, (c) key benchmark/dataset,
 (d) important baseline/alternative approach.
+
+#### Venue subset inference (from domain signal)
+
+Before scope confirmation, infer which venues in `config/venues.yaml` are
+relevant by mapping the **Domain** signal to these tags:
+
+| Domain signal contains | Include venues tagged |
+|---|---|
+| any project (always) | `general` |
+| "NLP", "language", "text", "dialogue", "translation", "LLM" | + `nlp` |
+| "CV", "vision", "image", "detection", "segmentation", "video" | + `cv` |
+| unclear / multi-domain | + all (no domain filter) |
+
+The resulting subset becomes the default `--venues` set in scope
+confirmation. Always include the `arxiv_only` and `workshop` buckets
+regardless. User can override with `--venues <csv>`.
+
+Example: signal `Domain: NLP / multi-step reasoning` →
+`inferred_domain_tags: [general, nlp]` → venues:
+NeurIPS, ICLR, ICML, AAAI, COLM, ACL, EMNLP, NAACL (drop CVPR/ICCV/ECCV).
 
 #### Scope confirmation (mandatory)
 
@@ -115,7 +158,8 @@ for explicit approval. Use this format:
 **Scope:**
 - top per venue: <N>
 - years: <unrestricted | last Y>
-- venues: <all | csv list>
+- inferred domain: <general | general+nlp | general+cv | all>
+- venues: <comma-separated venue names from the inferred subset>
 - output: <path>
 
 Approve, tweak, or say "abort".
@@ -234,18 +278,35 @@ them even if results are small (3+ papers is enough).
 
 ### Per-paper template
 
+Four structured anchors (TL;DR, Method, Result, Critical Reading) come
+before the project-specific relevance note. These four match the standard
+pattern for literature-review note-taking — fill each one even if short.
+
 ```markdown
 # <Title>
 
 **Authors:** <comma-separated>
 **Venue:** <Venue Year>
+**Confidence:** <high | medium | low>     <!-- venue match / relevance certainty -->
 **Links:** [OpenReview](...) · [arXiv](...) · [PDF](...)
 
 ## Abstract
 <English abstract, verbatim>
 
-## 한줄 요약
-<Korean, 1 sentence>
+## TL;DR
+<Korean, 1 sentence — what this paper is about in one breath>
+
+## Method
+<Korean, 1–2 sentences — what the paper proposes or does, the core mechanism>
+
+## Result
+<Korean, 1–2 sentences — key findings or numbers. If no numbers available
+from abstract, say what improvement claim is made and over what baseline>
+
+## Critical Reading
+<Korean, 2–3 bullets — limitations, unstated assumptions, what's missing.
+If the abstract alone is not enough to critique, say so and flag what you'd
+want to verify in the full paper>
 
 ## 왜 이 프로젝트와 관련 있는가
 <Korean, 2–4 sentences referencing specific aspects of the project>
