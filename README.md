@@ -32,7 +32,8 @@ flowchart TD
     S3 --> Par
     Par --> Merge[Combine JSON arrays]
     Merge --> S4[§4 dedupe.py<br/>venue-wins merge<br/>doi &gt; arxiv_id &gt; title+author]
-    S4 --> S5[§5 Relevance ranking<br/>top-N per venue]
+    S4 --> S45[§4.5 resolve_venues.py<br/>PDF 헤더로 truncated<br/>venue 복구]
+    S45 --> S5[§5 Relevance ranking<br/>top-N per venue]
     S5 --> S6[§6 Output 작성<br/>+ figure 추출 &#40;선택된 논문별&#41;]
     S6 --> Out{{papers/<br/>├─ README.md  Themes/Convergences/Gaps<br/>├─ .project_analysis.json<br/>└─ &lt;Venue&gt;/<br/>⠀⠀├─ index.md<br/>⠀⠀├─ refs.bib<br/>⠀⠀├─ YYYY-author-slug.md<br/>⠀⠀└─ YYYY-author-slug/figures/<br/>⠀⠀⠀⠀⠀fig-01.png + fig-01.txt}}
     Out --> Done([완료]):::done
