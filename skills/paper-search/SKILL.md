@@ -53,7 +53,7 @@ Parse from the user's invocation:
 | `--output <path>` | `./papers/` | Output root |
 | `--venues <csv>` | all in `config/venues.yaml` | Restrict venues |
 | `--force` | off | Overwrite without prompt |
-| `--with-figures` | off | After §6, download PDFs for selected papers and extract figures |
+| `--no-figures` | off | Skip the figure-extraction step in §6 (faster runs) |
 | `--figures-method` | `auto` | `auto` / `pymupdf` / `pdffigures2`. `auto` uses pdffigures2 if `PDFFIGURES2_JAR` is set, else pymupdf |
 
 Free-form topic override (no flag): `/paper-search "topic phrase"` — use
@@ -222,15 +222,22 @@ ask the user before overwriting.
 Create:
 
     papers/
-      README.md               # project summary (Korean), queries (English),
-                              # per-venue counts, cross-paper themes, run metadata
+      README.md                        # project summary, queries, counts, Themes/Gaps
+      .project_analysis.json           # §1 signals
       <venue>/
-        index.md              # Markdown table: # | Title | Year | Authors | 관련성
-        refs.bib              # all BibTeX entries, concatenated
-        YYYY-<firstauthor>-<slug>.md   # per paper, see template below
+        index.md                       # Markdown table
+        refs.bib                       # all BibTeX entries concatenated
+        YYYY-<firstauthor>-<slug>.md   # per-paper notes (4 anchors + relevance)
+        YYYY-<firstauthor>-<slug>/     # per-paper asset directory (same slug)
+          figures/
+            fig-01.png
+            fig-01.txt                 # caption sidecar
+            fig-02.png
+            fig-02.txt
 
 Categories with zero selected papers: no directory created; count 0 in
-README table.
+README table. **The per-paper asset directory uses the same slug as the
+`.md` file** so they stay paired in listings.
 
 #### Root `papers/README.md` template
 
@@ -313,6 +320,15 @@ want to verify in the full paper>
 ## 왜 이 프로젝트와 관련 있는가
 <Korean, 2–4 sentences referencing specific aspects of the project>
 
+## Figures
+<!-- Filled in by the figure-extraction step. Omit the section entirely if
+     no figures were extracted for this paper (paywall, parse failure). -->
+![Figure 1](<slug>/figures/fig-01.png)
+> Figure 1: …
+
+![Figure 2](<slug>/figures/fig-02.png)
+> Figure 2: …
+
 ## BibTeX
 ​```bibtex
 @inproceedings{...}
@@ -324,40 +340,44 @@ Use the `title_slug` and `first_author_lastname` helpers from
 reproduce their logic directly (lowercase, punctuation stripped, hyphens,
 ≤ 60 chars).
 
-### 7. (Optional) Figure extraction — only when `--with-figures` is set
+#### Figure extraction (default-on, skip with `--no-figures`)
 
-For each **selected** paper (i.e., those that made it into the output
-tree), download the PDF and extract figures:
+After writing each per-paper `.md`, download the paper's PDF and extract
+figures into the sibling asset directory:
 
-    cat selected_paper.json | python -m scripts.get_figures \
+    echo '<selected_paper.json>' | python -m scripts.get_figures \
         --out-dir "papers/<venue>/<slug>/" \
         --method "<auto|pymupdf|pdffigures2>"
 
-Figures land under `papers/<venue>/<slug>/figures/fig-NN.png` with a
-sidecar `fig-NN.txt` caption. The per-paper `<slug>.md` should then append
-a `## Figures` section linking each image:
+This creates `papers/<venue>/<slug>/figures/fig-NN.png` + `fig-NN.txt`.
+The orchestrator (`get_figures.py`) handles download + extraction +
+cleanup of the PDF cache by default.
+
+Method selection:
+- **pdffigures2** (best) — Allen AI's Scala tool, gold-standard
+  figure/caption mapping. Requires Java + pre-built jar referenced by
+  `PDFFIGURES2_JAR`. `--method auto` prefers it when set.
+- **pymupdf** (fallback) — pure-Python, heuristic caption mapping.
+
+**After extraction**, append a `## Figures` section to the per-paper
+`<slug>.md` using **relative paths** that work when viewing from
+`<venue>/index.md`:
 
 ```markdown
 ## Figures
 
-![Figure 1: ...](2024-smith-paper/figures/fig-01.png)
+![Figure 1](2024-smith-paper/figures/fig-01.png)
 > Figure 1: Architecture of the proposed model.
 
-![Figure 2: ...](2024-smith-paper/figures/fig-02.png)
+![Figure 2](2024-smith-paper/figures/fig-02.png)
 > Figure 2: Main results on benchmark X.
 ```
 
-Method selection:
-- **pdffigures2** — Allen AI's Scala tool, gold-standard figure/caption
-  mapping. Requires Java + pre-built jar. Enable by setting the
-  `PDFFIGURES2_JAR` env var; `--method auto` then prefers it.
-- **pymupdf** — pure-Python fallback, heuristic caption mapping. Used
-  automatically if the jar is missing.
-
-Failure handling: figure extraction is best-effort. PDFs that can't be
-downloaded (e.g., gscholar paywall links) yield empty figure lists — do
-NOT retry aggressively and do NOT abort the rest of the run. Surface the
-counts in the final status summary.
+Failure handling: figure extraction is **best-effort**. Paywalled PDFs
+(common for gscholar landing pages), network errors, or parse failures
+yield an empty figures list — append an empty `## Figures` section
+header (or omit entirely) and CONTINUE. Never abort the rest of the run.
+Surface per-paper figure counts in the final status summary.
 
 ## Failure reporting
 
