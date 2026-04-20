@@ -26,6 +26,16 @@ from typing import Optional
 import fitz
 import yaml
 
+# Silence MuPDF diagnostic messages. PyMuPDF writes color-profile warnings and
+# other non-fatal notes to stdout/stderr at the C level, which corrupts our
+# JSON-on-stdout pipeline (resolve_venues.py). Safe to suppress: we already
+# handle all recoverable errors in Python.
+try:
+    fitz.TOOLS.mupdf_display_errors(False)
+    fitz.TOOLS.mupdf_display_warnings(False)
+except (AttributeError, Exception):
+    pass
+
 
 _CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "venues.yaml"
 

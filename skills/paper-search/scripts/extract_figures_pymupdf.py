@@ -29,6 +29,14 @@ from typing import Optional
 
 import fitz  # PyMuPDF
 
+# Silence MuPDF diagnostics — they can leak to stdout when processing some
+# PDFs (e.g. malformed ICC profiles) and corrupt downstream JSON consumers.
+try:
+    fitz.TOOLS.mupdf_display_errors(False)
+    fitz.TOOLS.mupdf_display_warnings(False)
+except (AttributeError, Exception):
+    pass
+
 
 _FIG_CAPTION_RE = re.compile(r"^\s*(?:figure|fig\.?)\s*(\d+)\b[\.:]?\s*(.*)$",
                              re.IGNORECASE)
