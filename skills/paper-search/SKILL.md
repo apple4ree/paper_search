@@ -53,6 +53,8 @@ Parse from the user's invocation:
 | `--output <path>` | `./papers/` | Output root |
 | `--venues <csv>` | all in `config/venues.yaml` | Restrict venues |
 | `--force` | off | Overwrite without prompt |
+| `--with-figures` | off | After §6, download PDFs for selected papers and extract figures |
+| `--figures-method` | `auto` | `auto` / `pymupdf` / `pdffigures2`. `auto` uses pdffigures2 if `PDFFIGURES2_JAR` is set, else pymupdf |
 
 Free-form topic override (no flag): `/paper-search "topic phrase"` — use
 the phrase as the project description instead of reading the directory.
@@ -322,8 +324,44 @@ Use the `title_slug` and `first_author_lastname` helpers from
 reproduce their logic directly (lowercase, punctuation stripped, hyphens,
 ≤ 60 chars).
 
+### 7. (Optional) Figure extraction — only when `--with-figures` is set
+
+For each **selected** paper (i.e., those that made it into the output
+tree), download the PDF and extract figures:
+
+    cat selected_paper.json | python -m scripts.get_figures \
+        --out-dir "papers/<venue>/<slug>/" \
+        --method "<auto|pymupdf|pdffigures2>"
+
+Figures land under `papers/<venue>/<slug>/figures/fig-NN.png` with a
+sidecar `fig-NN.txt` caption. The per-paper `<slug>.md` should then append
+a `## Figures` section linking each image:
+
+```markdown
+## Figures
+
+![Figure 1: ...](2024-smith-paper/figures/fig-01.png)
+> Figure 1: Architecture of the proposed model.
+
+![Figure 2: ...](2024-smith-paper/figures/fig-02.png)
+> Figure 2: Main results on benchmark X.
+```
+
+Method selection:
+- **pdffigures2** — Allen AI's Scala tool, gold-standard figure/caption
+  mapping. Requires Java + pre-built jar. Enable by setting the
+  `PDFFIGURES2_JAR` env var; `--method auto` then prefers it.
+- **pymupdf** — pure-Python fallback, heuristic caption mapping. Used
+  automatically if the jar is missing.
+
+Failure handling: figure extraction is best-effort. PDFs that can't be
+downloaded (e.g., gscholar paywall links) yield empty figure lists — do
+NOT retry aggressively and do NOT abort the rest of the run. Surface the
+counts in the final status summary.
+
 ## Failure reporting
 
 End the run with a short status summary: which sources returned data,
-which were blocked, per-venue counts. If Google Scholar was blocked,
-say so plainly — the user needs to know that category may be under-covered.
+which were blocked, per-venue counts, and (if `--with-figures` was set)
+per-paper figure counts. If Google Scholar was blocked, say so plainly —
+the user needs to know that category may be under-covered.
