@@ -71,18 +71,65 @@ def test_download_pdf_returns_none_on_unresolvable(tmp_path, monkeypatch):
     assert out is None
 
 
-def test_download_pdf_returns_none_on_http_error(tmp_path, monkeypatch):
+def test_download_pdf_fast_fails_on_4xx(tmp_path, monkeypatch):
+    """4xx responses (403/404) mean auth/gone — never retry."""
     from scripts import download_pdf
 
-    fake = MagicMock()
-    fake.status_code = 404
-    fake.raise_for_status.side_effect = download_pdf.requests.HTTPError("404")
-    monkeypatch.setattr(download_pdf.requests, "get", lambda *a, **kw: fake)
+    calls = {"n": 0}
+
+    def fake_get(*a, **kw):
+        calls["n"] += 1
+        resp = MagicMock()
+        resp.status_code = 403
+        err = download_pdf.requests.HTTPError("403 Forbidden")
+        err.response = MagicMock(status_code=403)
+        resp.raise_for_status.side_effect = err
+        return resp
+
+    monkeypatch.setattr(download_pdf.requests, "get", fake_get)
     monkeypatch.setattr(download_pdf.time, "sleep", lambda s: None)
 
     p = _paper(arxiv_id="2401.1")
     out = download_pdf.download_pdf(p, tmp_path)
     assert out is None
+    assert calls["n"] == 1  # no retries on 4xx
+
+
+def test_download_pdf_retries_on_5xx(tmp_path, monkeypatch):
+    from scripts import download_pdf
+
+    calls = {"n": 0}
+
+    def fake_get(*a, **kw):
+        calls["n"] += 1
+        resp = MagicMock()
+        resp.status_code = 503
+        err = download_pdf.requests.HTTPError("503 unavailable")
+        err.response = MagicMock(status_code=503)
+        resp.raise_for_status.side_effect = err
+        return resp
+
+    monkeypatch.setattr(download_pdf.requests, "get", fake_get)
+    monkeypatch.setattr(download_pdf.time, "sleep", lambda s: None)
+
+    p = _paper(arxiv_id="2401.1")
+    out = download_pdf.download_pdf(p, tmp_path)
+    assert out is None
+    assert calls["n"] == 3  # exhaust retries on 5xx
+
+
+def test_download_pdf_skips_paywalled_domain(tmp_path, monkeypatch):
+    """SSRN / Elsevier etc. always return 403 — skip without even trying."""
+    from scripts import download_pdf
+
+    calls = {"n": 0}
+    monkeypatch.setattr(download_pdf.requests, "get",
+                        lambda *a, **kw: (calls.__setitem__("n", calls["n"] + 1) or MagicMock()))
+
+    p = _paper(pdf_url="https://papers.ssrn.com/sol3/Delivery.cfm?abstractid=5277657")
+    out = download_pdf.download_pdf(p, tmp_path)
+    assert out is None
+    assert calls["n"] == 0  # never called requests.get
 
 
 def test_download_pdf_rejects_non_pdf_content_type(tmp_path, monkeypatch):

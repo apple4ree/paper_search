@@ -27,6 +27,23 @@ from scripts.common import title_slug, first_author_lastname
 _ARXIV_VERSION_RE = re.compile(r"v\d+$")
 _OPENREVIEW_FORUM_RE = re.compile(r"openreview\.net/forum", re.IGNORECASE)
 
+# Domains that always return 403/401 to anonymous fetchers.
+# Skipping them up-front saves ~10s per paper (3 retries × wait).
+_PAYWALL_DOMAINS = frozenset({
+    "papers.ssrn.com", "ssrn.com",
+    "www.sciencedirect.com", "sciencedirect.com",
+    "link.springer.com", "springer.com", "springerlink.com",
+    "onlinelibrary.wiley.com", "wiley.com",
+    "ieeexplore.ieee.org", "ieee.org",
+    "dl.acm.org",
+    "www.nature.com", "nature.com",
+    "pubs.rsc.org",
+    "www.tandfonline.com", "tandfonline.com",
+    "academic.oup.com",
+    "journals.aps.org",
+    "iopscience.iop.org",
+})
+
 
 def resolve_pdf_url(paper: dict) -> Optional[str]:
     """Pick the best PDF URL from a paper record, or None if unresolvable.
@@ -62,14 +79,30 @@ def _paper_filename(paper: dict) -> str:
     return f"{year}-{author}-{slug}.pdf"
 
 
+def _is_paywalled(url: str) -> bool:
+    host = urlparse(url).hostname or ""
+    return host.lower() in _PAYWALL_DOMAINS
+
+
 def download_pdf(paper: dict, dest_dir: Path, *, timeout: int = 30) -> Optional[Path]:
-    """Fetch the paper's PDF into dest_dir. Returns the saved Path or None."""
+    """Fetch the paper's PDF into dest_dir. Returns the saved Path or None.
+
+    Behaviour:
+      - Skips paywalled domains up-front (no retries).
+      - Fast-fails on HTTP 4xx (auth/not-found — retrying won't help).
+      - Retries up to 3 times on 5xx / network errors with exponential backoff.
+    """
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     url = resolve_pdf_url(paper)
     if not url:
         print(f"download_pdf: no resolvable URL for {paper.get('title', '?')!r}",
+              file=sys.stderr)
+        return None
+
+    if _is_paywalled(url):
+        print(f"download_pdf: skipping paywalled host for {paper.get('title', '?')!r} ({url})",
               file=sys.stderr)
         return None
 
@@ -89,8 +122,18 @@ def download_pdf(paper: dict, dest_dir: Path, *, timeout: int = 30) -> Optional[
                 return None
             out.write_bytes(resp.content)
             return out
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else 0
+            if 400 <= status < 500:
+                # Auth / not-found / forbidden — retrying won't fix it.
+                print(f"download_pdf: {status} for {url}; giving up",
+                      file=sys.stderr)
+                return None
+            print(f"download_pdf: attempt {attempt+1} 5xx for {url}: {e}",
+                  file=sys.stderr)
+            time.sleep(2 ** attempt)
         except requests.RequestException as e:
-            print(f"download_pdf: attempt {attempt+1} failed for {url}: {e}",
+            print(f"download_pdf: attempt {attempt+1} network error for {url}: {e}",
                   file=sys.stderr)
             time.sleep(2 ** attempt)
 

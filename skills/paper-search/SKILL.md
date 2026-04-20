@@ -12,23 +12,29 @@ Markdown indexes and per-paper summaries.
 ## Prerequisites
 
 The skill bundles Python scripts that require `arxiv`, `openreview-py`,
-`scholarly`, `pyyaml`, and `requests`. **Every script invocation in this
-skill must happen inside the plugin's venv**, which lives at
-`${CLAUDE_PLUGIN_ROOT}/.venv`.
+`scholarly`, `pyyaml`, `requests`, and `pymupdf` (for PDF reading).
+**Every script invocation in this skill must happen inside the plugin's
+venv**, which lives at `${CLAUDE_PLUGIN_ROOT}/.venv`.
 
-**Bootstrap check** (run this first, once per session):
+**Bootstrap check** (run this first, once per session — safe to re-run):
 
     cd "${CLAUDE_PLUGIN_ROOT}"
     if [ ! -d .venv ]; then
-        python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-    else
-        source .venv/bin/activate
+        python -m venv .venv
     fi
-    python -c "import arxiv, openreview, scholarly, yaml, requests" \
-        || { echo "deps missing — run: pip install -r requirements.txt"; exit 1; }
+    source .venv/bin/activate
+    # If the plugin was updated, requirements.txt may have new deps —
+    # `pip install -r requirements.txt` is idempotent and fast when
+    # everything is already there.
+    python -c "import arxiv, openreview, scholarly, yaml, requests, fitz" 2>/dev/null \
+        || pip install -r requirements.txt
 
-If the venv does not exist **and** the user cannot/should not install deps,
-stop and ask them. Do not proceed with broken imports.
+After a `/plugin marketplace update paper-search`, re-run this bootstrap
+once — new dependencies (e.g. `pymupdf`) won't be auto-installed by the
+plugin system.
+
+If the user cannot install deps, stop and report — do not proceed with
+broken imports.
 
 ### OpenReview credentials
 
