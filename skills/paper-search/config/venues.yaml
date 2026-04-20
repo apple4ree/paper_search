@@ -1,29 +1,94 @@
 # Target venues for paper-search.
 #
-# Each venue is tagged with one or more `domains`:
-#   - general   : always included; broad ML/AI venues
-#   - nlp       : NLP / CL venues (ACL, EMNLP, NAACL, COLM)
-#   - cv        : CV venues (CVPR, ICCV, ECCV)
-#
-# SKILL.md §2 filters this list by the project's inferred domain before
-# running §3. `general` venues are ALWAYS included; domain-specific venues
-# are included only when the signal matches.
-#
-# Entries with openreview_id are queried via search_openreview.py;
-# others are picked up from arxiv / gscholar results only.
+# Fields:
+#   name          — canonical venue name (becomes bucket directory name)
+#   openreview_id — OpenReview group prefix (if supported by the venue)
+#   domains       — one or more of: general, nlp, cv
+#                   Used in §2 to auto-select relevant venue subset.
+#                     `general`  → always included
+#                     `nlp`      → included when signal mentions NLP/LLM/language
+#                     `cv`       → included when signal mentions CV/vision/image
+#   pdf_patterns  — regex patterns (case-insensitive) to detect this venue
+#                   from PDF first-page header text.
+#                   Used by scripts/venue_from_pdf.py when gscholar returns
+#                   a truncated venue string (e.g. "Proceedings of the …").
 
 venues:
-  - { name: NeurIPS, openreview_id: NeurIPS.cc, domains: [general] }
-  - { name: ICLR,    openreview_id: ICLR.cc,    domains: [general] }
-  - { name: ICML,    openreview_id: ICML.cc,    domains: [general] }
-  - { name: AAAI,                                 domains: [general] }
-  - { name: COLM,    openreview_id: colmweb.org, domains: [nlp] }
-  - { name: ACL,                                  domains: [nlp] }
-  - { name: EMNLP,                                domains: [nlp] }
-  - { name: NAACL,                                domains: [nlp] }
-  - { name: CVPR,                                 domains: [cv] }
-  - { name: ICCV,                                 domains: [cv] }
-  - { name: ECCV,                                 domains: [cv] }
+  - name: NeurIPS
+    openreview_id: NeurIPS.cc
+    domains: [general]
+    pdf_patterns:
+      - "advances in neural information processing systems"
+      - "conference on neural information processing systems"
+      - "\\bneurips\\s*20\\d{2}\\b"
+
+  - name: ICLR
+    openreview_id: ICLR.cc
+    domains: [general]
+    pdf_patterns:
+      - "published as a conference paper at iclr"
+      - "under review as a conference paper at iclr"
+      - "international conference on learning representations"
+
+  - name: ICML
+    openreview_id: ICML.cc
+    domains: [general]
+    pdf_patterns:
+      - "proceedings of the \\d+(?:st|nd|rd|th) international conference on machine learning"
+      - "international conference on machine learning.*20\\d{2}"
+      - "\\bicml\\s*20\\d{2}\\b"
+
+  - name: AAAI
+    domains: [general]
+    pdf_patterns:
+      - "proceedings of the.*aaai conference on artificial intelligence"
+      - "\\baaai-\\d{2}\\b"
+
+  - name: COLM
+    openreview_id: colmweb.org
+    domains: [nlp]
+    pdf_patterns:
+      - "conference on language modeling"
+      - "\\bcolm\\s*20\\d{2}\\b"
+
+  - name: ACL
+    domains: [nlp]
+    pdf_patterns:
+      - "proceedings of the \\d+(?:st|nd|rd|th) annual meeting of the association for computational linguistics"
+      - "findings of the association for computational linguistics.*acl"
+      - "acl.*proceedings"
+
+  - name: EMNLP
+    domains: [nlp]
+    pdf_patterns:
+      - "empirical methods in natural language processing"
+      - "findings of the association for computational linguistics.*emnlp"
+      - "\\bemnlp\\s*20\\d{2}\\b"
+
+  - name: NAACL
+    domains: [nlp]
+    pdf_patterns:
+      - "north american chapter of the association for computational linguistics"
+      - "\\bnaacl\\s*20\\d{2}\\b"
+
+  - name: CVPR
+    domains: [cv]
+    pdf_patterns:
+      - "ieee/cvf conference on computer vision and pattern recognition"
+      - "conference on computer vision and pattern recognition"
+      - "\\bcvpr\\s*20\\d{2}\\b"
+
+  - name: ICCV
+    domains: [cv]
+    pdf_patterns:
+      - "international conference on computer vision"
+      - "\\biccv\\s*20\\d{2}\\b"
+
+  - name: ECCV
+    domains: [cv]
+    pdf_patterns:
+      - "european conference on computer vision"
+      - "\\beccv\\s*20\\d{2}\\b"
 
 special_categories:
   - arxiv_only

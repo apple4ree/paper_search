@@ -55,6 +55,7 @@ Parse from the user's invocation:
 | `--force` | off | Overwrite without prompt |
 | `--no-figures` | off | Skip the figure-extraction step in §6 (faster runs) |
 | `--figures-method` | `auto` | `auto` / `pymupdf` / `pdffigures2`. `auto` uses pdffigures2 if `PDFFIGURES2_JAR` is set, else pymupdf |
+| `--no-resolve-venues` | off | Skip the PDF-based venue resolution step in §4.5 (faster but worse classification when OpenReview is unavailable) |
 
 Free-form topic override (no flag): `/paper-search "topic phrase"` — use
 the phrase as the project description instead of reading the directory.
@@ -205,9 +206,30 @@ Pipe the combined array into `dedupe.py` (same CWD/venv as §3):
 
     cat combined.json | python -m scripts.dedupe
 
-Receive `{category: [paper, ...]}` back. Categories that are not in
-`venues.yaml` (i.e., venues learned only from arXiv/gscholar metadata that
-don't match our list) should be folded into `arxiv_only`.
+Receive `{category: [paper, ...]}` back. Categories may include truncated
+gscholar strings (e.g. `"Proceedings of the …"`) — §4.5 handles these.
+
+### 4.5. Resolve ambiguous venues via PDF (default-on)
+
+When OpenReview is unavailable, gscholar venue strings are often
+truncated, and many arXiv papers are actually published at conferences.
+Pipe the dedupe output through `resolve_venues.py` to re-classify these
+by reading each ambiguous paper's first-page PDF header:
+
+    cat deduped.json | python -m scripts.resolve_venues > resolved.json
+
+`resolve_venues.py`:
+  - Skips papers already in a canonical venue bucket (NeurIPS, ICLR, …).
+  - For papers in `arxiv_only` or in any non-canonical bucket name
+    (truncated gscholar strings), downloads the PDF and matches its header
+    text against `pdf_patterns` in `venues.yaml`.
+  - Confirmed papers are moved to the correct bucket with
+    `"venue_resolution": "pdf"` annotation.
+  - Unresolvable papers (no PDF, paywall, or no matching pattern) stay in
+    `arxiv_only`.
+
+Best-effort — failures are silent. Use `--no-resolve-venues` to skip this
+step entirely (faster).
 
 ### 5. Relevance ranking
 
