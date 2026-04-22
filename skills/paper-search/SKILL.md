@@ -126,8 +126,14 @@ Schema:
 
 ### 2. Analysis & query generation
 
-Draft 2–4 English queries per `references/query_generation.md`, using the
-structured signals from §1. Each query should map to one of:
+Draft **3–5 English queries**, each **2–5 content words, one concept only**,
+per `references/query_generation.md`, using the structured signals from §1.
+
+**Anti-pattern**: stuffing multiple concepts into one long query (e.g.
+`order flow imbalance limit order book short-term price prediction` —
+three concepts, few matches). Split into separate queries instead.
+
+Each query should map to one of:
 (a) core method, (b) problem framing, (c) key benchmark/dataset,
 (d) important baseline/alternative approach.
 
