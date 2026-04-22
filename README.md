@@ -34,8 +34,10 @@ flowchart TD
     Merge --> S4[§4 dedupe.py<br/>venue-wins merge<br/>doi &gt; arxiv_id &gt; title+author]
     S4 --> S45[§4.5 resolve_venues.py<br/>PDF 헤더로 truncated<br/>venue 복구]
     S45 --> S5[§5 Relevance ranking<br/>top-N per venue]
-    S5 --> S6[§6 Output 작성<br/>+ figure 추출 &#40;선택된 논문별&#41;]
-    S6 --> Out{{papers/<br/>├─ README.md  Themes/Convergences/Gaps<br/>├─ .project_analysis.json<br/>└─ &lt;Venue&gt;/<br/>⠀⠀├─ index.md<br/>⠀⠀├─ refs.bib<br/>⠀⠀├─ YYYY-author-slug.md<br/>⠀⠀└─ YYYY-author-slug/figures/<br/>⠀⠀⠀⠀⠀fig-01.png + fig-01.txt}}
+    S5 --> S6[§6 build_paper_folder.py<br/>논문별 PDF 다운로드 → 추출<br/>raw.md + figures + _pages + paper_meta]
+    S6 --> S7[§7 LLM summary writing<br/>raw.md + writing_rules.md →<br/>summary.md + abstract.md]
+    S7 --> S8[§8 Cross-paper synthesis<br/>Themes/Convergences/<br/>Disagreements/Gaps]
+    S8 --> Out{{papers/<br/>├─ README.md  Themes/Convergences/Gaps<br/>├─ .project_analysis.json<br/>└─ &lt;Venue&gt;/<br/>⠀⠀├─ index.md<br/>⠀⠀├─ refs.bib<br/>⠀⠀└─ NN_authorYEARMETHOD&#40;venueYear&#41;/<br/>⠀⠀⠀⠀⠀raw.md + summary.md +<br/>⠀⠀⠀⠀⠀abstract.md + figures/<br/>⠀⠀⠀⠀⠀&#40;+ _pages/ 폴백&#41;}}
     Out --> Done([완료]):::done
 
     classDef cmd fill:#4a90e2,stroke:#2e5c8a,color:#fff
@@ -55,18 +57,17 @@ flowchart LR
 
 ### Per-paper 출력 구조
 
-각 논문 `.md` 파일은 4-anchor 구조 + 프로젝트 특화 관련성:
+논문 1편 = 폴더 (`NN_<firstauthor><year><METHOD>(<venue><year>)/`), 3개 파일 + figures:
 
-| 섹션 | 내용 | 언어 |
+| 파일 | 역할 | 언어 |
 |---|---|---|
-| **Abstract** | 원문 verbatim | 영어 |
-| **TL;DR** | 한 문장 요약 | 한국어 |
-| **Method** | 방법/제안 핵심 | 한국어 |
-| **Result** | 주요 결과/수치 | 한국어 |
-| **Critical Reading** | 한계·가정·미진한 점 | 한국어 |
-| **왜 이 프로젝트와 관련 있는가** | 본 프로젝트와의 연결고리 | 한국어 |
-| **Confidence** | `high · medium · low` (venue 분류/관련성 신뢰도) | — |
-| **BibTeX** | 인용용 | — |
+| **`raw.md`** | 페이지별 원문 + figure index + 삽입 이미지 (자동 생성, 재열람 없이 사실 복기) | 영어 |
+| **`abstract.md`** | 메타 + 원문 abstract + **한글 번역 (필수)** + 관련성 한 줄 (경량 검색용) | 혼합 |
+| **`summary.md`** | 메타 + Abstract(원문+한글) + TL;DR + 기여 + Glossary + Section별 상세 + Figure embed (3줄 주석) + 인용된 선행연구 + **왜 이 프로젝트와 관련 있는가** | 혼합 |
+| **`paper_meta.json`** | 구조화 메타 (인덱스·method·pages·figures 카운트) | JSON |
+| **`figures/`** | `fig1.png` / `figA1.png` (main/appendix) + `_pages/p-NN.png` (200dpi 폴백) | — |
+
+**출력은 wj926/paper-summary (MIT) 의 Phase B/C 포맷을 차용**했습니다. Cross-paper 합성(Themes/Convergences/Disagreements/Gaps)은 paper-search 고유.
 
 ## 타겟 학회
 
