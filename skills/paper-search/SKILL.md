@@ -59,9 +59,10 @@ Parse from the user's invocation:
 | `--output <path>` | `./papers/` | Output root |
 | `--venues <csv>` | all in `config/venues.yaml` | Restrict venues |
 | `--force` | off | Overwrite without prompt |
-| `--no-figures` | off | Skip the figure-extraction step in §6 (faster runs) |
-| `--figures-method` | `auto` | `auto` / `pymupdf` / `pdffigures2`. `auto` uses pdffigures2 if `PDFFIGURES2_JAR` is set, else pymupdf |
-| `--no-resolve-venues` | off | Skip the PDF-based venue resolution step in §4.5 (faster but worse classification when OpenReview is unavailable) |
+| `--no-extract` | off | Skip §6 (no per-paper folder; index-only output) |
+| `--no-figures` | off | Run §6 but without figure crops (raw.md text only) |
+| `--no-summary` | off | Run §6 but skip §7 LLM summary writing (raw.md + figures + paper_meta only) |
+| `--no-resolve-venues` | off | Skip §4.5 PDF-based venue resolution |
 
 Free-form topic override (no flag): `/paper-search "topic phrase"` — use
 the phrase as the project description instead of reading the directory.
@@ -242,30 +243,48 @@ step entirely (faster).
 For each category, read titles + abstracts and pick the top N (default 10)
 most relevant to the project context and original queries. Drop the rest.
 
-### 6. Output
+### 6. Per-paper folder build (Python, §6 = `build_paper_folder.py`)
 
 Root = `--output` (default `./papers/`). If it exists and `--force` is off,
 ask the user before overwriting.
 
-Create:
+For each selected paper (§5 output), run:
+
+    echo '<paper.json>' | python -m scripts.build_paper_folder \
+        --out-dir "papers/<Venue>/" \
+        --index <N> \
+        --method <TRANSFORMER|DPO|...>  # optional, skip if unclear
+
+This downloads the PDF, extracts structured content, and writes:
+
+    papers/<Venue>/<NN_firstauthoryearMETHOD(venueYear)>/
+      raw.md                          # page-by-page text + figure index + embeds
+      paper_meta.json                 # paper dict + extraction summary
+      figures/
+        fig1.png, fig2.png, ...       # main content figures (sequentially renumbered)
+        figA1.png, figA2.png, ...     # appendix figures
+        _pages/
+          p-01.png, p-02.png, ...     # 200dpi full-page renders (manual re-crop fallback)
+
+**METHOD token**: extract a short acronym from title/abstract (e.g., `DPO`,
+`LoRA`, `TRANSFORMER`). If no obvious acronym, omit `--method` — folder
+becomes `01_vaswani2017(NeurIPS2017)`.
+
+**PDF-unavailable papers** (paywalled, gscholar landing pages): the script
+returns `{"status": "failed"}` — do NOT create the folder, but DO write a
+minimal stub at `papers/<Venue>/<NN_...>_NO_PDF.md` containing just the
+metadata and abstract from the search result, so the paper is still listed.
+
+**Root output files** (regardless of per-paper success):
 
     papers/
-      README.md                        # project summary, queries, counts, Themes/Gaps
-      .project_analysis.json           # §1 signals
-      <venue>/
-        index.md                       # Markdown table
-        refs.bib                       # all BibTeX entries concatenated
-        YYYY-<firstauthor>-<slug>.md   # per-paper notes (4 anchors + relevance)
-        YYYY-<firstauthor>-<slug>/     # per-paper asset directory (same slug)
-          figures/
-            fig-01.png
-            fig-01.txt                 # caption sidecar
-            fig-02.png
-            fig-02.txt
+      README.md                       # §8 synthesis (Themes/Convergences/Gaps)
+      .project_analysis.json          # §1 signals
+      <Venue>/
+        index.md                      # folder list with one-line relevance per paper
+        refs.bib                      # all BibTeX entries concatenated
 
-Categories with zero selected papers: no directory created; count 0 in
-README table. **The per-paper asset directory uses the same slug as the
-`.md` file** so they stay paired in listings.
+Categories with zero selected papers: no directory created.
 
 #### Root `papers/README.md` template
 
@@ -313,99 +332,32 @@ The `Themes / Convergences / Disagreements / Gaps` sections are what turn
 this from a reading list into a literature-review starter — do not skip
 them even if results are small (3+ papers is enough).
 
-### Per-paper template
+### 7. LLM summary writing (Claude, §7)
 
-Four structured anchors (TL;DR, Method, Result, Critical Reading) come
-before the project-specific relevance note. These four match the standard
-pattern for literature-review note-taking — fill each one even if short.
+For each per-paper folder that §6 produced successfully, read
+`references/writing_rules.md`, `templates/summary.md`, `templates/abstract.md`,
+and the folder's `raw.md` + `paper_meta.json`. Write two files in-place:
 
-```markdown
-# <Title>
+- `summary.md` — full structured summary (메타 + TL;DR + 기여 + Glossary +
+  Section별 상세 + Figure embed + 인용 선행연구 + **§ 왜 이 프로젝트와 관련 있는가**)
+- `abstract.md` — 경량 검색용 파일 (메타 + 원문 abstract + **한글 번역 (필수)**
+  + 관련성 한 줄)
 
-**Authors:** <comma-separated>
-**Venue:** <Venue Year>
-**Confidence:** <high | medium | low>     <!-- venue match / relevance certainty -->
-**Links:** [OpenReview](...) · [arXiv](...) · [PDF](...)
+**Required**:
+- Abstract 한글 번역은 **필수** — `abstract.md` 에도, `summary.md` 의 Abstract
+  섹션에도 포함. 의역 OK, 수치/모델명/약어/기호는 원문 보존.
+- 두 파일 간 메타·원문·번역은 **동일 문구**.
+- `§ 왜 이 프로젝트와 관련 있는가` 는 `.project_analysis.json` 의 signal 기반
+  2–4 문장. summary.md 만이 이 섹션을 가짐.
 
-## Abstract
-<English abstract, verbatim>
+**Skip with `--no-summary`** — raw.md / figures / paper_meta.json 만 남기고
+Claude 가 summary/abstract 를 쓰지 않음.
 
-## TL;DR
-<Korean, 1 sentence — what this paper is about in one breath>
+### 8. Cross-paper synthesis (Claude, §8)
 
-## Method
-<Korean, 1–2 sentences — what the paper proposes or does, the core mechanism>
-
-## Result
-<Korean, 1–2 sentences — key findings or numbers. If no numbers available
-from abstract, say what improvement claim is made and over what baseline>
-
-## Critical Reading
-<Korean, 2–3 bullets — limitations, unstated assumptions, what's missing.
-If the abstract alone is not enough to critique, say so and flag what you'd
-want to verify in the full paper>
-
-## 왜 이 프로젝트와 관련 있는가
-<Korean, 2–4 sentences referencing specific aspects of the project>
-
-## Figures
-<!-- Filled in by the figure-extraction step. Omit the section entirely if
-     no figures were extracted for this paper (paywall, parse failure). -->
-![Figure 1](<slug>/figures/fig-01.png)
-> Figure 1: …
-
-![Figure 2](<slug>/figures/fig-02.png)
-> Figure 2: …
-
-## BibTeX
-​```bibtex
-@inproceedings{...}
-​```
-```
-
-Use the `title_slug` and `first_author_lastname` helpers from
-`scripts/common.py` for filename generation if you shell out to Python; or
-reproduce their logic directly (lowercase, punctuation stripped, hyphens,
-≤ 60 chars).
-
-#### Figure extraction (default-on, skip with `--no-figures`)
-
-After writing each per-paper `.md`, download the paper's PDF and extract
-figures into the sibling asset directory:
-
-    echo '<selected_paper.json>' | python -m scripts.get_figures \
-        --out-dir "papers/<venue>/<slug>/" \
-        --method "<auto|pymupdf|pdffigures2>"
-
-This creates `papers/<venue>/<slug>/figures/fig-NN.png` + `fig-NN.txt`.
-The orchestrator (`get_figures.py`) handles download + extraction +
-cleanup of the PDF cache by default.
-
-Method selection:
-- **pdffigures2** (best) — Allen AI's Scala tool, gold-standard
-  figure/caption mapping. Requires Java + pre-built jar referenced by
-  `PDFFIGURES2_JAR`. `--method auto` prefers it when set.
-- **pymupdf** (fallback) — pure-Python, heuristic caption mapping.
-
-**After extraction**, append a `## Figures` section to the per-paper
-`<slug>.md` using **relative paths** that work when viewing from
-`<venue>/index.md`:
-
-```markdown
-## Figures
-
-![Figure 1](2024-smith-paper/figures/fig-01.png)
-> Figure 1: Architecture of the proposed model.
-
-![Figure 2](2024-smith-paper/figures/fig-02.png)
-> Figure 2: Main results on benchmark X.
-```
-
-Failure handling: figure extraction is **best-effort**. Paywalled PDFs
-(common for gscholar landing pages), network errors, or parse failures
-yield an empty figures list — append an empty `## Figures` section
-header (or omit entirely) and CONTINUE. Never abort the rest of the run.
-Surface per-paper figure counts in the final status summary.
+Read the selected papers together (abstracts + key methods) and write
+`papers/README.md`. **Never skip this step** — it converts the output from a
+reading list into a literature-review starter.
 
 ## Failure reporting
 
